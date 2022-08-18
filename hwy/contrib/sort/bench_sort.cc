@@ -16,6 +16,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include <chrono>
 #include <vector>
 
 // clang-format off
@@ -204,7 +205,6 @@ std::vector<Algo> AlgoForBench() {
 #if !SORT_100M
         // These are 10-20x slower, but that's OK for the default size when we
         // are not testing the parallel nor 100M modes.
-        Algo::kStd, Algo::kHeap,
 #endif
 
         Algo::kVQSort,  // only ~4x slower, but not required for Table 1a
@@ -289,6 +289,29 @@ HWY_NOINLINE void BenchAllSort() {
 #endif
   }
 }
+
+HWY_NOINLINE void BenchVTune() {
+    // Not interested in benchmark results for these targets
+      if (HWY_TARGET == HWY_SSSE3 || HWY_TARGET == HWY_SSE4 ||
+          HWY_TARGET == HWY_NEON || HWY_TARGET == HWY_EMU128) {
+        return;
+      }
+      // Only enable EMU128 on x86 - it's slow on emulators.
+      if (!HWY_ARCH_X86 && (HWY_TARGET == HWY_EMU128)) return;
+
+      constexpr size_t M = 1000 * 1000;
+      (void)M;
+
+      auto start = std::chrono::steady_clock::now();
+      size_t num_keys = 100 * M;
+      BenchSort<TraitsLane<OrderDescending<int32_t>>>(num_keys);
+      auto end = std::chrono::steady_clock::now();
+
+      std::cout << "Elapsed millis: "
+          << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
+          << " ms\n";
+}
+
 
 }  // namespace
 // NOLINTNEXTLINE(google-readability-namespace-comments)
